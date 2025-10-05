@@ -1,5 +1,6 @@
 package com.example.fairsplit.controller
 
+import android.util.Log
 import com.example.fairsplit.model.dto.Group
 import com.example.fairsplit.model.remote.FirestoreRepository
 import kotlinx.coroutines.*
@@ -15,28 +16,38 @@ class GroupsController(
         data class Created(val group: Group) : Action()
     }
 
-    private val io = CoroutineScope(Dispatchers.IO)
-    private fun post(a: Action) = CoroutineScope(Dispatchers.Main).launch { ui(a) }
+    private val main = CoroutineScope(Dispatchers.Main)
 
     fun loadMyGroups() {
-        post(Action.Loading(true))
-        io.launch {
-            try { post(Action.Groups(repo.myGroups())) }
-            catch (ex: Exception) { post(Action.Error(ex.message ?: "Failed to load groups")) }
-            finally { post(Action.Loading(false)) }
+        main.launch {
+            ui(Action.Loading(true))
+            try {
+                Log.d("GroupsController", "loadMyGroups")
+                val items = withContext(Dispatchers.IO) { repo.myGroups() }
+                ui(Action.Groups(items))
+            } catch (e: Exception) {
+                ui(Action.Error(e.message ?: "Failed to load groups"))
+            } finally {
+                ui(Action.Loading(false))
+            }
         }
     }
 
     fun createGroup(name: String) {
-        post(Action.Loading(true))
-        io.launch {
+        main.launch {
+            ui(Action.Loading(true))
             try {
-                val g = repo.createGroup(name)
-                post(Action.Created(g))
-                post(Action.Groups(repo.myGroups()))
-            } catch (ex: Exception) {
-                post(Action.Error(ex.message ?: "Create failed"))
-            } finally { post(Action.Loading(false)) }
+                Log.d("GroupsController", "createGroup: $name")
+                val g = withContext(Dispatchers.IO) { repo.createGroup(name) }
+                ui(Action.Created(g))
+                // refresh list
+                val items = withContext(Dispatchers.IO) { repo.myGroups() }
+                ui(Action.Groups(items))
+            } catch (e: Exception) {
+                ui(Action.Error(e.message ?: "Create failed"))
+            } finally {
+                ui(Action.Loading(false))
+            }
         }
     }
 }

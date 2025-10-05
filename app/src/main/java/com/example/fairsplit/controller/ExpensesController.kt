@@ -1,5 +1,6 @@
 package com.example.fairsplit.controller
 
+import android.util.Log
 import com.example.fairsplit.model.dto.Expense
 import com.example.fairsplit.model.remote.FirestoreRepository
 import kotlinx.coroutines.*
@@ -15,28 +16,37 @@ class ExpensesController(
         object Added : Action()
     }
 
-    private val io = CoroutineScope(Dispatchers.IO)
-    private fun post(a: Action) = CoroutineScope(Dispatchers.Main).launch { ui(a) }
+    private val main = CoroutineScope(Dispatchers.Main)
 
     fun load(groupId: String) {
-        post(Action.Loading(true))
-        io.launch {
-            try { post(Action.Expenses(repo.listExpenses(groupId))) }
-            catch (ex: Exception) { post(Action.Error(ex.message ?: "Load failed")) }
-            finally { post(Action.Loading(false)) }
+        main.launch {
+            ui(Action.Loading(true))
+            try {
+                Log.d("ExpensesController", "load: $groupId")
+                val items = withContext(Dispatchers.IO) { repo.listExpenses(groupId) }
+                ui(Action.Expenses(items))
+            } catch (e: Exception) {
+                ui(Action.Error(e.message ?: "Load failed"))
+            } finally {
+                ui(Action.Loading(false))
+            }
         }
     }
 
-    fun add(groupId: String, expense: Expense) {
-        post(Action.Loading(true))
-        io.launch {
+    fun add(groupId: String, e: Expense) {
+        main.launch {
+            ui(Action.Loading(true))
             try {
-                repo.addExpense(groupId, expense)
-                post(Action.Added)
-                post(Action.Expenses(repo.listExpenses(groupId)))
+                Log.d("ExpensesController", "add: ${e.title} ${e.amount}")
+                withContext(Dispatchers.IO) { repo.addExpense(groupId, e) }
+                ui(Action.Added)
+                val items = withContext(Dispatchers.IO) { repo.listExpenses(groupId) }
+                ui(Action.Expenses(items))
             } catch (ex: Exception) {
-                post(Action.Error(ex.message ?: "Add failed"))
-            } finally { post(Action.Loading(false)) }
+                ui(Action.Error(ex.message ?: "Add failed"))
+            } finally {
+                ui(Action.Loading(false))
+            }
         }
     }
 }

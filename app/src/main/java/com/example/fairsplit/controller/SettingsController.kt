@@ -1,5 +1,6 @@
 package com.example.fairsplit.controller
 
+import android.util.Log
 import com.example.fairsplit.model.dto.UserProfile
 import com.example.fairsplit.model.remote.FirestoreRepository
 import com.example.fairsplit.model.remote.RatesService
@@ -26,9 +27,10 @@ class SettingsController(
             ui(Action.Loading(true))
             try {
                 val uid = auth.currentUser?.uid ?: ""
-                val profile = withContext(Dispatchers.IO) { repo.getUserProfile(uid) }
+                Log.d("SettingsController", "load profile uid=$uid")
+                val p = withContext(Dispatchers.IO) { repo.getUserProfile(uid) }
                     ?: UserProfile(uid = uid, displayName = "", defaultCurrency = "ZAR")
-                ui(Action.Loaded(profile))
+                ui(Action.Loaded(p))
             } catch (e: Exception) {
                 ui(Action.Error(e.message ?: "Load failed"))
             } finally {
@@ -41,6 +43,7 @@ class SettingsController(
         main.launch {
             ui(Action.Loading(true))
             try {
+                Log.d("SettingsController", "save profile ${profile.uid}")
                 withContext(Dispatchers.IO) { repo.saveUserProfile(profile) }
                 ui(Action.Saved)
             } catch (e: Exception) {
@@ -55,6 +58,7 @@ class SettingsController(
         main.launch {
             ui(Action.Loading(true))
             try {
+                Log.d("SettingsController", "fetch rate ZAR->USD")
                 val rate = withContext(Dispatchers.IO) {
                     val resp = RatesService.api.latest("ZAR")
                     if (!resp.isSuccessful) throw Exception("HTTP ${resp.code()}")

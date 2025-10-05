@@ -1,5 +1,6 @@
 package com.example.fairsplit.controller
 
+import android.util.Log
 import com.example.fairsplit.model.dto.UserProfile
 import com.example.fairsplit.model.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -7,8 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-// Passwords are never stored by the app. Firebase Auth transmits over HTTPS and stores passwords as salted/hashed on Google servers.
+import kotlinx.coroutines.tasks.await   // <-- official await()
 
 class AuthController(
     private val repo: FirestoreRepository = FirestoreRepository(),
@@ -21,40 +21,47 @@ class AuthController(
         object LoginSuccess : Action()
     }
 
-    private fun post(a: Action) = CoroutineScope(Dispatchers.Main).launch { ui(a) }
+    private val main = CoroutineScope(Dispatchers.Main)
 
     fun register(email: String, password: String, displayName: String) {
-        post(Action.Loading(true))
-        auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { res ->
-            if (!res.isSuccessful) {
-                post(Action.Loading(false))
-                post(Action.Error(res.exception?.message ?: "Register failed"))
-                return@addOnCompleteListener
-            }
-            // Save profile safely; always stop loading even if it fails
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    repo.saveUserProfile(UserProfile(uid = repo.currentUid(), displayName = displayName))
-                    withContext(Dispatchers.Main) {
-                        ui(Action.Loading(false))
-                        ui(Action.LoginSuccess)
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        ui(Action.Loading(false))
-                        ui(Action.Error(e.message ?: "Failed to save profile"))
-                    }
+        main.launch {
+            ui(Action.Loading(true))
+            try {
+                Log.d("AuthController", "register start: $email")
+                val res = auth.createUserWithEmailAndPassword(email, password).await()
+                Log.d("AuthController", "register auth ok uid=${res.user?.uid}")
+
+                // Navigate immediately (stop spinner)
+                ui(Action.Loading(false))
+                ui(Action.LoginSuccess)
+
+                // Save profile in background (best effort)
+                withContext(Dispatchers.IO) {
+                    val uid = res.user?.uid ?: return@withContext
+                    repo.saveUserProfile(UserProfile(uid = uid, displayName = displayName))
                 }
+            } catch (e: Exception) {
+                ui(Action.Error(e.message ?: "Register failed"))
+            } finally {
+                // Safety: never leave spinner on
+                ui(Action.Loading(false))
             }
         }
     }
 
     fun login(email: String, password: String) {
-        post(Action.Loading(true))
-        auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { res ->
-            post(Action.Loading(false))
-            if (res.isSuccessful) post(Action.LoginSuccess)
-            else post(Action.Error(res.exception?.message ?: "Login failed"))
+        main.launch {
+            ui(Action.Loading(true))
+            try {
+                Log.d("AuthController", "login start: $email")
+                auth.signInWithEmailAndPassword(email, password).await()
+                Log.d("AuthController", "login ok")
+                ui(Action.LoginSuccess)
+            } catch (e: Exception) {
+                ui(Action.Error(e.message ?: "Login failed"))
+            } finally {
+                ui(Action.Loading(false))
+            }
         }
     }
 }
