@@ -1,52 +1,76 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:orientation="vertical"
-    android:padding="16dp"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <EditText
-        android:id="@+id/etDisplayName"
-        android:hint="Display name"
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="16dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+        android:layout_height="wrap_content">
 
-    <EditText
-        android:id="@+id/etCurrency"
-        android:text="ZAR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+        <!-- Display name -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-    <Button
-        android:id="@+id/btnSave"
-        android:text="Save"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etDisplayName"
+                android:hint="Display name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:paddingVertical="12dp" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <Button
-        android:id="@+id/btnRate"
-        android:text="Fetch ZAR→USD rate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+        <!-- Default currency (3-letter code e.g. ZAR) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp">
 
-    <TextView
-        android:id="@+id/tvRate"
-        android:text="Rate will appear here"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingTop="8dp" />
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etCurrency"
+                android:hint="Currency (e.g., ZAR)"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="56dp"
+                android:paddingVertical="12dp"
+                android:inputType="textCapCharacters" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <ProgressBar
-        android:id="@+id/progress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone" />
-</LinearLayout>
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save"
+            android:minHeight="48dp"
+            android:paddingVertical="12dp"
+            android:layout_marginTop="12dp" />
+
+        <Button
+            android:id="@+id/btnRate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fetch ZAR → USD"
+            android:minHeight="48dp"
+            android:paddingVertical="12dp"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tvRate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1 ZAR = ? USD"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp" />
+
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginTop="12dp" />
+    </LinearLayout>
+</ScrollView>

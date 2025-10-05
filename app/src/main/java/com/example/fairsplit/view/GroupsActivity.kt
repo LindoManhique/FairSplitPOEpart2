@@ -29,6 +29,11 @@ class GroupsActivity : AppCompatActivity() {
         binding = ActivityGroupsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // >>> Wire Settings button <<<
+        binding.btnOpenSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         // --- Controllers
         groupsCtrl = GroupsController { action ->
             when (action) {
@@ -75,6 +80,7 @@ class GroupsActivity : AppCompatActivity() {
         binding.btnCreateGroup.setOnClickListener {
             val name = binding.etGroupName.text.toString().trim()
             if (name.isNotEmpty()) groupsCtrl.createGroup(name)
+            else binding.etGroupName.error = "Enter a group name"
         }
 
         // --- DEMO helper: quick default group
@@ -85,7 +91,7 @@ class GroupsActivity : AppCompatActivity() {
         // --- DEMO helper: quick expense into a known group
         binding.btnAddExpense.setOnClickListener {
             val gid = lastCreatedGroupId ?: groups.firstOrNull()?.id
-            if (gid == null || gid.isBlank()) {
+            if (gid.isNullOrBlank()) {
                 Toast.makeText(this, "Create a group first", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }

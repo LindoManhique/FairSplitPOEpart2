@@ -14,6 +14,16 @@
         android:paddingVertical="12dp" />
 
     <Button
+        android:id="@+id/btnOpenSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Settings"
+        android:minHeight="48dp"
+        android:paddingVertical="12dp"
+        android:layout_marginBottom="8dp"/>
+
+
+    <Button
         android:id="@+id/btnCreateGroup"
         android:text="Create group"
         android:layout_width="match_parent"
