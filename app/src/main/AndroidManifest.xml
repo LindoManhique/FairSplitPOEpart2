@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Needed for Retrofit / Firebase -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:usesCleartextTraffic="false"
+        android:allowBackup="true"
+        android:label="FairSplit"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FairSplit">
+
+        <!-- Internal screens (no intent-filters) can be exported=false -->
+        <activity
+            android:name=".view.SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".view.ExpensesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".view.GroupsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".view.RegisterActivity"
+            android:exported="false" />
+
+        <!-- Launcher activity: MUST have exported=true because it has an intent-filter -->
+        <activity
+            android:name=".view.LoginActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

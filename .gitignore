@@ -1,0 +1,24 @@
+# Gradle
+**/build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+local.properties
+
+# Native / CMake
+.externalNativeBuild/
+.cxx/
+
+# Misc
+captures/
+.DS_Store
+
+# Signing keys
+*.jks
+*.keystore
+app/keystore.properties
+
+ app/google-services.json
