@@ -1,69 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
 
+    <!-- Screen title / group name (optional) -->
     <TextView
-        android:id="@+id/tvGroupTitle"
-        android:textStyle="bold"
-        android:textSize="18sp"
+        android:id="@+id/tvScreenTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="8dp" />
+        android:text="Expenses"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:paddingBottom="4dp" />
 
-    <!-- Title with proper touch target -->
+    <!-- Expense title -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etTitle"
-            android:hint="Expense title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:hint="Title (e.g., Lunch)"
             android:minHeight="56dp"
             android:paddingVertical="12dp" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Amount with proper touch target -->
+    <!-- Amount -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilAmount"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etAmount"
-            android:hint="Amount"
-            android:inputType="numberDecimal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:hint="Amount"
+            android:inputType="numberDecimal"
             android:minHeight="56dp"
             android:paddingVertical="12dp" />
     </com.google.android.material.textfield.TextInputLayout>
 
+    <!-- Add button -->
     <Button
         android:id="@+id/btnAdd"
-        android:text="Add expense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="Add expense"
         android:minHeight="48dp"
         android:paddingVertical="12dp"
-        android:layout_marginTop="8dp" />
+        android:layout_marginTop="12dp" />
 
+    <!-- List of expenses -->
     <ListView
         android:id="@+id/listExpenses"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="8dp" />
+        android:layout_marginTop="12dp" />
 
+    <!-- Loading spinner -->
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:layout_marginTop="8dp" />
+
 </LinearLayout>

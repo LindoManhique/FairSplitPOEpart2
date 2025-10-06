@@ -17,17 +17,13 @@ class FirestoreRepository(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     init {
-        // Ensure offline cache is on (safe to set once)
+        // Enable offline cache (safe if called more than once)
         try {
             val settings = FirebaseFirestoreSettings.Builder()
                 .setPersistenceEnabled(true)
                 .build()
-            if (db.firestoreSettings != settings) {
-                db.firestoreSettings = settings
-            }
-        } catch (_: Exception) {
-            // ignore if settings already applied
-        }
+            if (db.firestoreSettings != settings) db.firestoreSettings = settings
+        } catch (_: Exception) { /* already set */ }
     }
 
     private fun users() = db.collection("users")
@@ -43,16 +39,16 @@ class FirestoreRepository(
         users().document(profile.uid).set(profile).await()
     }
 
-    /** Prefer SERVER, else fall back to CACHE. */
+    /** Prefer SERVER, fall back to CACHE. */
     suspend fun getUserProfile(uid: String = currentUid()): UserProfile? {
         if (uid.isBlank()) return null
         return try {
-            val snap = users().document(uid).get(Source.SERVER).await()
-            snap.toObject(UserProfile::class.java)
+            users().document(uid).get(Source.SERVER).await()
+                .toObject(UserProfile::class.java)
         } catch (e: Exception) {
-            Log.w("FirestoreRepo", "getUserProfile server failed, using cache: ${e.message}")
-            val cached = users().document(uid).get(Source.CACHE).await()
-            cached.toObject(UserProfile::class.java)
+            Log.w("FirestoreRepo", "getUserProfile server failed: ${e.message}; using cache")
+            users().document(uid).get(Source.CACHE).await()
+                .toObject(UserProfile::class.java)
         }
     }
 
@@ -69,16 +65,13 @@ class FirestoreRepository(
     suspend fun myGroups(): List<Group> {
         val uid = currentUid()
         if (uid.isBlank()) return emptyList()
-
         return try {
-            val qs = groups().whereArrayContains("members", uid)
-                .get(Source.SERVER).await()
-            qs.documents.mapNotNull { it.toObject(Group::class.java) }
+            groups().whereArrayContains("members", uid).get(Source.SERVER).await()
+                .documents.mapNotNull { it.toObject(Group::class.java) }
         } catch (e: Exception) {
-            Log.w("FirestoreRepo", "myGroups server failed, using cache: ${e.message}")
-            val qs = groups().whereArrayContains("members", uid)
-                .get(Source.CACHE).await()
-            qs.documents.mapNotNull { it.toObject(Group::class.java) }
+            Log.w("FirestoreRepo", "myGroups server failed: ${e.message}; using cache")
+            groups().whereArrayContains("members", uid).get(Source.CACHE).await()
+                .documents.mapNotNull { it.toObject(Group::class.java) }
         }
     }
 
@@ -99,15 +92,26 @@ class FirestoreRepository(
         return toSave
     }
 
-    /** Prefer SERVER, else CACHE. */
+    /** Prefer SERVER, else CACHE. Safe if offline. */
     suspend fun listExpenses(groupId: String): List<Expense> {
         return try {
-            val qs = expenses(groupId).get(Source.SERVER).await()
-            qs.documents.mapNotNull { it.toObject(Expense::class.java) }
+            expenses(groupId).get(Source.SERVER).await()
+                .documents.mapNotNull { it.toObject(Expense::class.java) }
         } catch (e: Exception) {
-            Log.w("FirestoreRepo", "listExpenses server failed, using cache: ${e.message}")
-            val qs = expenses(groupId).get(Source.CACHE).await()
-            qs.documents.mapNotNull { it.toObject(Expense::class.java) }
+            Log.w("FirestoreRepo", "listExpenses server failed: ${e.message}; using cache")
+            expenses(groupId).get(Source.CACHE).await()
+                .documents.mapNotNull { it.toObject(Expense::class.java) }
+        }
+    }
+
+    /** NEW: delete an expense; returns true on success, false otherwise. */
+    suspend fun deleteExpense(groupId: String, expenseId: String): Boolean {
+        return try {
+            expenses(groupId).document(expenseId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.w("FirestoreRepo", "deleteExpense failed: ${e.message}")
+            false
         }
     }
 }

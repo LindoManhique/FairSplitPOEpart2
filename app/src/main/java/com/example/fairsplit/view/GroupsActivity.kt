@@ -32,10 +32,9 @@ class GroupsActivity : AppCompatActivity() {
         binding = ActivityGroupsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Header title
         binding.tvScreenTitle.text = "Groups"
 
-        // Greet the signed-in user
+        // Greet user
         val repo = FirestoreRepository()
         lifecycleScope.launch {
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -53,59 +52,63 @@ class GroupsActivity : AppCompatActivity() {
             binding.etGroupName.isEnabled = !on
         }
 
-        // >>> FIX: pass the ui lambda with explicit type
-        groupsCtrl = GroupsController(ui = { action: GroupsController.Action ->
-            when (action) {
-                is GroupsController.Action.Loading -> setLoading(action.on)
+        // -------- Instantiate controllers with NAMED ARGS --------
+        groupsCtrl = GroupsController(
+            ui = { action: GroupsController.Action ->
+                when (action) {
+                    is GroupsController.Action.Loading -> setLoading(action.on)
 
-                is GroupsController.Action.Error ->
-                    Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
+                    is GroupsController.Action.Error ->
+                        Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
 
-                is GroupsController.Action.Groups -> {
-                    groups = action.items
-                    val names = groups.map { it.name }
-                    binding.listGroups.adapter =
-                        ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
-                }
-
-                // Optimistic UI update
-                is GroupsController.Action.Created -> {
-                    lastCreatedGroupId = action.group.id
-                    Toast.makeText(this, "Group created: ${action.group.name}", Toast.LENGTH_SHORT).show()
-
-                    groups = listOf(action.group) + groups
-                    val names = groups.map { it.name }
-                    val existing = binding.listGroups.adapter as? ArrayAdapter<String>
-                    if (existing != null) {
-                        existing.clear()
-                        existing.addAll(names)
-                        existing.notifyDataSetChanged()
-                    } else {
+                    is GroupsController.Action.Groups -> {
+                        groups = action.items
+                        val names = groups.map { it.name }
                         binding.listGroups.adapter =
                             ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
                     }
-                    binding.etGroupName.text?.clear()
+
+                    is GroupsController.Action.Created -> {
+                        lastCreatedGroupId = action.group.id
+                        Toast.makeText(this, "Group created: ${action.group.name}", Toast.LENGTH_SHORT).show()
+
+                        // optimistic insert to top
+                        groups = listOf(action.group) + groups
+                        val names = groups.map { it.name }
+                        val existing = binding.listGroups.adapter as? ArrayAdapter<String>
+                        if (existing != null) {
+                            existing.clear()
+                            existing.addAll(names)
+                            existing.notifyDataSetChanged()
+                        } else {
+                            binding.listGroups.adapter =
+                                ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
+                        }
+                        binding.etGroupName.text?.clear()
+                    }
+                }
+            },
+            repo = FirestoreRepository()
+        )
+
+        expensesCtrl = ExpensesController(
+            ui = { action: ExpensesController.Action ->
+                when (action) {
+                    is ExpensesController.Action.Loading -> setLoading(action.on)
+                    is ExpensesController.Action.Error ->
+                        Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
+                    is ExpensesController.Action.Added ->
+                        Toast.makeText(this, "Expense added", Toast.LENGTH_SHORT).show()
+                    else -> Unit
                 }
             }
-        })
+        )
+        // ---------------------------------------------------------
 
-        expensesCtrl = ExpensesController { action ->
-            when (action) {
-                is com.example.fairsplit.controller.ExpensesController.Action.Loading -> setLoading(action.on)
-                is com.example.fairsplit.controller.ExpensesController.Action.Error ->
-                    Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                is com.example.fairsplit.controller.ExpensesController.Action.Added ->
-                    Toast.makeText(this, "Expense added", Toast.LENGTH_SHORT).show()
-                else -> Unit
-            }
-        }
-
-        // Open Settings
         binding.btnOpenSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // Create group from input
         binding.btnCreateGroup.setOnClickListener {
             val name = binding.etGroupName.text.toString().trim()
             if (name.isEmpty()) {
@@ -115,12 +118,10 @@ class GroupsActivity : AppCompatActivity() {
             }
         }
 
-        // Demo: quick-create group
         binding.btnAddGroup.setOnClickListener {
             groupsCtrl.createGroup("Demo Trip")
         }
 
-        // Demo: quick-add expense to latest/first group
         binding.btnAddExpense.setOnClickListener {
             val gid = lastCreatedGroupId ?: groups.firstOrNull()?.id
             if (gid.isNullOrBlank()) {
@@ -137,7 +138,6 @@ class GroupsActivity : AppCompatActivity() {
             expensesCtrl.add(gid, e)
         }
 
-        // Open a group's expenses
         binding.listGroups.setOnItemClickListener { _, _, position, _ ->
             val g = groups[position]
             startActivity(
