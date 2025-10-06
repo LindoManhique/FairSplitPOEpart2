@@ -6,9 +6,12 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.fairsplit.R
 import com.example.fairsplit.databinding.ActivityExpensesBinding
 import com.example.fairsplit.model.dto.Expense
 import com.example.fairsplit.model.remote.FirestoreRepository
+import com.example.fairsplit.util.Nav
+import com.example.fairsplit.util.NavStore
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -34,6 +37,18 @@ class ExpensesActivity : AppCompatActivity() {
         groupName = intent.getStringExtra("groupName") ?: "Expenses"
         b.tvScreenTitle.text = "Expenses — $groupName"
 
+        // ---------- Bottom nav wiring (select Expenses tab) ----------
+        // Remember this as last open group so tabs from other screens know where to go
+        NavStore.saveLastGroup(this, groupId, groupName)
+        Nav.setup(
+            activity = this,
+            bottomNav = b.bottomNav,
+            selectedTabId = R.id.tab_expenses,
+            groupId = groupId,
+            groupName = groupName
+        )
+        // -------------------------------------------------------------
+
         // Simple list adapter
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         b.listExpenses.adapter = adapter
@@ -49,37 +64,29 @@ class ExpensesActivity : AppCompatActivity() {
             if (amount == null || amount <= 0.0) { b.etAmount.error = "Enter a valid amount"; invalid = true }
             if (invalid) return@setOnClickListener
 
-            val amt = amount!!   // safe after validation
+            val amt = amount!!
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             val e = Expense(title = title, amount = amt, payerUid = uid, participants = listOf(uid))
 
             // Optimistic insert
-            items.add(0, e)
-            refreshAdapter()
+            items.add(0, e); refreshAdapter()
 
             // Real write
             setLoading(true)
             lifecycleScope.launch {
-                try {
-                    repo.addExpense(groupId, e)
-                    toast("Expense added")
-                } catch (_: Exception) {
-                    toast("Could not add (offline?) — will resync")
-                } finally {
-                    setLoading(false)
-                }
+                try { repo.addExpense(groupId, e); toast("Expense added") }
+                catch (_: Exception) { toast("Could not add (offline?) — will resync") }
+                finally { setLoading(false) }
             }
 
-            // Clear inputs
-            b.etTitle.setText("")
-            b.etAmount.setText("")
+            // Clear
+            b.etTitle.setText(""); b.etAmount.setText("")
         }
 
         // Long-press delete
         b.listExpenses.setOnItemLongClickListener { _, _, position, _ ->
             val toDelete = items[position]
-            items.removeAt(position)         // optimistic remove
-            refreshAdapter()
+            items.removeAt(position); refreshAdapter()
             lifecycleScope.launch {
                 val ok = repo.deleteExpense(groupId, toDelete.id)
                 if (!ok) toast("Could not delete (offline?) — will resync")
@@ -94,9 +101,7 @@ class ExpensesActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val list = repo.listExpenses(groupId)  // server then cache
-                items.clear()
-                items.addAll(list)
-                refreshAdapter()
+                items.clear(); items.addAll(list); refreshAdapter()
             } finally {
                 setLoading(false)
             }
@@ -109,9 +114,7 @@ class ExpensesActivity : AppCompatActivity() {
             val amt = String.format(Locale.getDefault(), "R %.2f", exp.amount)
             "${exp.title} — $amt"
         }
-        adapter.clear()
-        adapter.addAll(rows)
-        adapter.notifyDataSetChanged()
+        adapter.clear(); adapter.addAll(rows); adapter.notifyDataSetChanged()
     }
 
     private fun setLoading(on: Boolean) {

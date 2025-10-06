@@ -1,104 +1,119 @@
 package com.example.fairsplit.view
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.fairsplit.controller.RatesController
-import com.example.fairsplit.controller.SettingsController
+import androidx.lifecycle.lifecycleScope
 import com.example.fairsplit.databinding.ActivitySettingsBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var b: ActivitySettingsBinding
-    private lateinit var settingsCtrl: SettingsController
-    private lateinit var ratesCtrl: RatesController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         b = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(b.root)
 
-        // Title
-        b.tvTitle.text = "Settings"
-
-        fun setLoading(on: Boolean) {
-            b.progress.visibility = if (on) View.VISIBLE else View.GONE
-            b.btnSave.isEnabled = !on
-            b.btnFetch.isEnabled = !on
-            b.etDisplayName.isEnabled = !on
-            b.etCurrency.isEnabled = !on
+        // Prefill from local store
+        lifecycleScope.launch {
+            setLoading(true)
+            try {
+                val s = SettingsLocal.load(this@SettingsActivity)
+                b.etDisplayName.setText(s.displayName ?: "")
+                b.etCurrencyCode.setText(s.currencyCode ?: "")
+            } finally {
+                setLoading(false)
+            }
         }
 
-        // Settings controller
-        settingsCtrl = SettingsController(ui = { action ->
-            runOnUiThread {
-                when (action) {
-                    is SettingsController.Action.Loading -> setLoading(action.on)
-                    is SettingsController.Action.Error ->
-                        Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                    is SettingsController.Action.Saved -> {
-                        // no-op; we navigate optimistically on Save
-                    }
-                    is SettingsController.Action.Prefilled -> {
-                        // <-- NO 'profile' variable here; use the action values
-                        b.etDisplayName.setText(action.name)
-                        b.etCurrency.setText(action.currency)
-                    }
-                }
-            }
-        })
-
-        // Rates controller
-        ratesCtrl = RatesController(ui = { action ->
-            runOnUiThread {
-                when (action) {
-                    is RatesController.Action.Loading -> setLoading(action.on)
-                    is RatesController.Action.Error ->
-                        Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                    is RatesController.Action.Result -> {
-                        b.tvRate.text = "1 ${action.base} = ${action.rate} ${action.target}"
-                        Toast.makeText(this, "Rate updated", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        })
-
-        // SAVE — optimistic navigate back to Groups
+        // SAVE → toast → go to Groups
         b.btnSave.setOnClickListener {
-            val name = b.etDisplayName.text?.toString()?.trim().orEmpty()
-            val currency = b.etCurrency.text?.toString()?.trim()?.uppercase().orEmpty()
+            lifecycleScope.launch {
+                setLoading(true)
+                try {
+                    val name = b.etDisplayName.text?.toString()?.trim().orEmpty()
+                    val code = b.etCurrencyCode.text?.toString()?.trim()
+                        ?.uppercase(Locale.ROOT).orEmpty()
 
-            var ok = true
-            if (name.isEmpty()) { b.etDisplayName.error = "Enter a display name"; ok = false }
-            if (currency.length != 3) { b.etCurrency.error = "Use a 3-letter code (e.g., ZAR)"; ok = false }
-            if (!ok) return@setOnClickListener
+                    SettingsLocal.save(this@SettingsActivity, name, code)
 
-            // IMPORTANT: positional args — do NOT use a named arg 'currency' or 'currencyCode'
-            settingsCtrl.saveProfile(name, currency)
+                    Toast.makeText(this@SettingsActivity, "Settings saved", Toast.LENGTH_SHORT).show()
 
-            Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
-            startActivity(
-                Intent(this, GroupsActivity::class.java)
-                    .putExtra("displayNameOverride", name)
-            )
-            finish()
+                    startActivity(Intent(this@SettingsActivity, GroupsActivity::class.java))
+                    finish()
+                } finally {
+                    setLoading(false)
+                }
+            }
         }
 
-        // FETCH rate (no hang)
-        b.btnFetch.setOnClickListener {
-            val base = b.etCurrency.text?.toString()?.trim()?.uppercase().orEmpty()
-            if (base.length != 3) {
-                b.etCurrency.error = "Use a 3-letter code (e.g., ZAR)"
-                return@setOnClickListener
+        // Optional demo fetch (remove if not needed)
+        b.btnFetchRates.setOnClickListener {
+            lifecycleScope.launch {
+                setLoading(true)
+                try {
+                    val code = b.etCurrencyCode.text?.toString()?.trim()
+                        ?.uppercase(Locale.ROOT).orEmpty()
+                    val rate = SettingsLocal.fetchRate(code)
+                    b.tvRate.text = rate.toString()
+                } finally {
+                    setLoading(false)
+                }
             }
-            ratesCtrl.fetch(base, "USD")
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        settingsCtrl.loadProfile()
+    private fun setLoading(on: Boolean) {
+        b.progress.visibility = if (on) View.VISIBLE else View.GONE
+        b.btnSave.isEnabled = !on
+        b.btnFetchRates.isEnabled = !on
+        b.etDisplayName.isEnabled = !on
+        b.etCurrencyCode.isEnabled = !on
+    }
+}
+
+/** Inline local store (so we don't touch other files). */
+private object SettingsLocal {
+    private const val PREF = "settings"
+    private const val KEY_NAME = "display_name"
+    private const val KEY_CCY  = "currency_code"
+
+    data class Settings(val displayName: String?, val currencyCode: String?)
+
+    suspend fun load(context: Context): Settings = withContext(Dispatchers.IO) {
+        val p = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        Settings(
+            displayName = p.getString(KEY_NAME, null),
+            currencyCode = p.getString(KEY_CCY, null)
+        )
+    }
+
+    suspend fun save(context: Context, displayName: String, currencyCode: String) =
+        withContext(Dispatchers.IO) {
+            val p = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+            p.edit()
+                .putString(KEY_NAME, displayName)
+                .putString(KEY_CCY, currencyCode)
+                .apply()
+        }
+
+    // Mock rate; swap for real API if you want
+    suspend fun fetchRate(currencyCode: String): Double = withContext(Dispatchers.IO) {
+        delay(300)
+        when (currencyCode.uppercase(Locale.ROOT)) {
+            "USD" -> 1.00
+            "ZAR" -> 18.50
+            "EUR" -> 0.92
+            else  -> 1.00
+        }
     }
 }

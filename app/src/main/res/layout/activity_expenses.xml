@@ -1,75 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Screen title / group name (optional) -->
+    <!-- Screen title -->
     <TextView
         android:id="@+id/tvScreenTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Expenses"
-        android:textStyle="bold"
         android:textSize="20sp"
-        android:paddingBottom="4dp" />
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
 
-    <!-- Expense title -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+    <!-- Progress spinner (no custom style → avoids AAPT issues) -->
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:visibility="gone"
+        android:paddingBottom="8dp" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Title (e.g., Lunch)"
-            android:minHeight="56dp"
-            android:paddingVertical="12dp" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <!-- Amount -->
-    <com.google.android.material.textfield.TextInputLayout
+    <!-- Add expense row -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="8dp">
 
-        <com.google.android.material.textfield.TextInputEditText
+        <EditText
+            android:id="@+id/etTitle"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:hint="Title"
+            android:minHeight="48dp"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp" />
+
+        <EditText
             android:id="@+id/etAmount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_width="96dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
             android:hint="Amount"
             android:inputType="numberDecimal"
-            android:minHeight="56dp"
-            android:paddingVertical="12dp" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:minHeight="48dp"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp" />
 
-    <!-- Add button -->
-    <Button
-        android:id="@+id/btnAdd"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Add expense"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp"
-        android:layout_marginTop="12dp" />
+        <Button
+            android:id="@+id/btnAdd"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:text="Add" />
+    </LinearLayout>
 
-    <!-- List of expenses -->
+    <!-- List -->
     <ListView
         android:id="@+id/listExpenses"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="12dp" />
+        android:dividerHeight="8dp" />
 
-    <!-- Loading spinner -->
-    <ProgressBar
-        android:id="@+id/progress"
-        android:layout_width="wrap_content"
+    <!-- Bottom navigation -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:layout_marginTop="8dp" />
-
+        app:menu="@menu/menu_bottom_nav"/>
 </LinearLayout>

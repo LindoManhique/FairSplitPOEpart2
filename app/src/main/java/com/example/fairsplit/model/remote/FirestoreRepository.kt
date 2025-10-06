@@ -83,6 +83,29 @@ class FirestoreRepository(
             .await()
     }
 
+    /** NEW: Delete a group and its expenses (best-effort cascade). */
+    suspend fun deleteGroup(groupId: String) {
+        // Delete subcollection 'expenses' first (best effort), then the group doc.
+        try {
+            val docs = expenses(groupId).get(Source.SERVER).await().documents
+            // If server fails (offline), attempt cache:
+            val toDelete = if (docs.isNotEmpty()) docs else runCatching {
+                expenses(groupId).get(Source.CACHE).await().documents
+            }.getOrDefault(emptyList())
+
+            // Firestore doesn't support true batched subcollection deletes cross-collection in one atomic op,
+            // so we do sequential deletes. This is fine for a student app / small lists.
+            for (d in toDelete) {
+                expenses(groupId).document(d.id).delete().await()
+            }
+        } catch (e: Exception) {
+            Log.w("FirestoreRepo", "deleteGroup: failed to list/delete expenses: ${e.message} — continuing")
+        }
+
+        // Finally delete the group document
+        groups().document(groupId).delete().await()
+    }
+
     // ------------------ EXPENSES ------------------
 
     suspend fun addExpense(groupId: String, e: Expense): Expense {
@@ -104,7 +127,7 @@ class FirestoreRepository(
         }
     }
 
-    /** NEW: delete an expense; returns true on success, false otherwise. */
+    /** Delete an expense; returns true on success, false otherwise. */
     suspend fun deleteExpense(groupId: String, expenseId: String): Boolean {
         return try {
             expenses(groupId).document(expenseId).delete().await()

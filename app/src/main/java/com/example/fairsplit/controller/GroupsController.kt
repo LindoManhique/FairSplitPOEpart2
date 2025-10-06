@@ -4,12 +4,7 @@ import com.example.fairsplit.model.dto.Group
 import com.example.fairsplit.model.remote.FirestoreRepository
 import kotlinx.coroutines.*
 
-/**
- * Groups controller with:
- * - spinner always cleared (finally)
- * - server-first load
- * - createGroup() with 5s timeout + optimistic fallback
- */
+
 class GroupsController(
     private val ui: (Action) -> Unit,
     private val repo: FirestoreRepository = FirestoreRepository()
@@ -20,6 +15,9 @@ class GroupsController(
         data class Error(val msg: String) : Action()
         data class Groups(val items: List<Group>) : Action()
         data class Created(val group: Group) : Action()
+
+        // Emitted when a delete should immediately reflect in UI
+        data class Deleted(val groupId: String) : Action()
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -42,12 +40,9 @@ class GroupsController(
         scope.launch {
             try {
                 // Try to create, but don't hang forever
-                val created = withTimeoutOrNull(5_000) {
-                    repo.createGroup(name)
-                }
+                val created = withTimeoutOrNull(5_000) { repo.createGroup(name) }
 
                 if (created != null) {
-                    // normal path
                     ui(Action.Created(created))
                 } else {
                     // timeout: optimistic local item so UI updates immediately
@@ -60,16 +55,39 @@ class GroupsController(
                     ui(Action.Created(local))
                     ui(Action.Error("Network slow/offline: will sync in background."))
 
-                    // Try the real write in background without blocking UI
-                    launch(Dispatchers.IO) {
-                        try { repo.createGroup(name) } catch (_: Exception) { /* swallow */ }
-                    }
+                    // Real write in background
+                    launch(Dispatchers.IO) { runCatching { repo.createGroup(name) } }
                 }
             } catch (e: Exception) {
                 ui(Action.Error(e.localizedMessage ?: "Failed to create group"))
             } finally {
-                // ALWAYS clear spinner
                 ui(Action.Loading(false))
+            }
+        }
+    }
+
+
+    fun deleteGroup(group: Group) {
+        scope.launch {
+            // Briefly show spinner (optional), then clear it to avoid "infinite spinner" feel
+            ui(Action.Loading(true))
+
+            // Instant UI update
+            ui(Action.Deleted(group.id))
+            ui(Action.Loading(false))
+
+            // Best-effort backend delete with 4s timeout on IO
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    withTimeout(4_000) { repo.deleteGroup(group.id) }
+                    true
+                }.getOrElse { false }
+            }
+
+            if (!ok) {
+                ui(Action.Error("Network issue: will finish deleting in background when online."))
+                // Optional: fire-and-forget retry
+                launch(Dispatchers.IO) { runCatching { repo.deleteGroup(group.id) } }
             }
         }
     }
