@@ -1,5 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Baby/Electric Blue palette -->
+    <color name="blue_primary">#40A9FF</color>        <!-- electric/baby blue -->
+    <color name="blue_primary_dark">#1D7CF3</color>   <!-- status bar / pressed -->
+    <color name="blue_primary_light">#E6F4FF</color>  <!-- containers / chips -->
+    <color name="blue_secondary">#5CC8FF</color>
+    <color name="blue_on_primary">#FFFFFF</color>
+    <color name="blue_on_secondary">#003247</color>
+    <color name="blue_surface">#F7FBFF</color>        <!-- page bg -->
+    <color name="blue_on_surface">#0B2B4A</color>     <!-- text -->
 </resources>

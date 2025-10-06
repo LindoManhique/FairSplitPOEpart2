@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/blue_surface">
 
     <!-- Screen title -->
     <TextView
@@ -16,7 +18,7 @@
         android:textStyle="bold"
         android:paddingBottom="8dp" />
 
-    <!-- Progress spinner (no custom style → avoids AAPT issues) -->
+    <!-- Progress spinner -->
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="wrap_content"
@@ -75,5 +77,9 @@
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:menu="@menu/menu_bottom_nav"/>
+        app:menu="@menu/menu_bottom_nav"
+        app:itemIconTint="@color/bottom_nav_selector"
+        app:itemTextColor="@color/bottom_nav_selector"
+        app:backgroundTint="@color/blue_surface"
+        app:labelVisibilityMode="labeled" />
 </LinearLayout>
