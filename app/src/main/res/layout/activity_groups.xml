@@ -1,40 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/etGroupName"
-        android:hint="New group name"
-        android:inputType="textCapWords"
+    <!-- Screen title -->
+    <TextView
+        android:id="@+id/tvScreenTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+        android:text="Groups"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:paddingBottom="4dp" />
 
+    <!-- Friendly greeting / username placeholder -->
+    <TextView
+        android:id="@+id/tvUserName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Welcome!"
+        android:layout_marginBottom="12dp" />
 
+    <!-- Enter a group name -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
 
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etGroupName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Group name"
+            android:minHeight="56dp"
+            android:paddingVertical="12dp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Create from input -->
     <Button
         android:id="@+id/btnCreateGroup"
-        android:text="Create group"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="Create group"
         android:minHeight="48dp"
-        android:paddingVertical="12dp" />
+        android:paddingVertical="12dp"
+        android:layout_marginTop="8dp" />
 
+    <!-- Demo helpers -->
     <Button
         android:id="@+id/btnAddGroup"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="+ Create demo group" />
+        android:text="+ Create demo group"
+        android:minHeight="48dp"
+        android:paddingVertical="12dp"
+        android:layout_marginTop="8dp" />
 
     <Button
         android:id="@+id/btnAddExpense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="+ Add demo expense" />
+        android:text="+ Add demo expense"
+        android:minHeight="48dp"
+        android:paddingVertical="12dp"
+        android:layout_marginTop="8dp" />
 
+    <!-- Open Settings -->
     <Button
         android:id="@+id/btnOpenSettings"
         android:layout_width="match_parent"
@@ -42,18 +75,22 @@
         android:text="Open Settings"
         android:minHeight="48dp"
         android:paddingVertical="12dp"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginTop="8dp" />
 
-
+    <!-- List of groups -->
     <ListView
         android:id="@+id/listGroups"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:layout_marginTop="12dp" />
 
+    <!-- Loading spinner (default hidden) -->
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:layout_marginTop="8dp" />
+
 </LinearLayout>

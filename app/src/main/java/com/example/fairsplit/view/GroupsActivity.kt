@@ -8,12 +8,15 @@ import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.fairsplit.controller.ExpensesController
 import com.example.fairsplit.controller.GroupsController
 import com.example.fairsplit.databinding.ActivityGroupsBinding
 import com.example.fairsplit.model.dto.Expense
 import com.example.fairsplit.model.dto.Group
+import com.example.fairsplit.model.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 class GroupsActivity : AppCompatActivity() {
 
@@ -22,23 +25,38 @@ class GroupsActivity : AppCompatActivity() {
     private lateinit var expensesCtrl: ExpensesController
 
     private var groups: List<Group> = emptyList()
-    private var lastCreatedGroupId: String? = null  // used by the demo "Add expense" button
+    private var lastCreatedGroupId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityGroupsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // >>> Wire Settings button <<<
-        binding.btnOpenSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        // Header title
+        binding.tvScreenTitle.text = "Groups"
+
+        // Greet the signed-in user
+        val repo = FirestoreRepository()
+        lifecycleScope.launch {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val profile = repo.getUserProfile(uid)
+            val fallback = FirebaseAuth.getInstance().currentUser?.email ?: "User"
+            binding.tvUserName.text = "Welcome, ${profile?.displayName ?: fallback}"
         }
 
-        // --- Controllers
-        groupsCtrl = GroupsController { action ->
+        fun setLoading(on: Boolean) {
+            binding.progress.visibility = if (on) View.VISIBLE else View.GONE
+            binding.btnCreateGroup.isEnabled = !on
+            binding.btnAddGroup.isEnabled = !on
+            binding.btnAddExpense.isEnabled = !on
+            binding.btnOpenSettings.isEnabled = !on
+            binding.etGroupName.isEnabled = !on
+        }
+
+        // >>> FIX: pass the ui lambda with explicit type
+        groupsCtrl = GroupsController(ui = { action: GroupsController.Action ->
             when (action) {
-                is GroupsController.Action.Loading ->
-                    binding.progress.visibility = if (action.on) View.VISIBLE else View.GONE
+                is GroupsController.Action.Loading -> setLoading(action.on)
 
                 is GroupsController.Action.Error ->
                     Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
@@ -50,45 +68,59 @@ class GroupsActivity : AppCompatActivity() {
                         ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
                 }
 
+                // Optimistic UI update
                 is GroupsController.Action.Created -> {
                     lastCreatedGroupId = action.group.id
-                    Toast.makeText(
-                        this,
-                        "Group created: ${action.group.name}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this, "Group created: ${action.group.name}", Toast.LENGTH_SHORT).show()
+
+                    groups = listOf(action.group) + groups
+                    val names = groups.map { it.name }
+                    val existing = binding.listGroups.adapter as? ArrayAdapter<String>
+                    if (existing != null) {
+                        existing.clear()
+                        existing.addAll(names)
+                        existing.notifyDataSetChanged()
+                    } else {
+                        binding.listGroups.adapter =
+                            ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
+                    }
+                    binding.etGroupName.text?.clear()
                 }
             }
-        }
+        })
 
         expensesCtrl = ExpensesController { action ->
-            // Keep it simple; we just want a toast on success/failure for the demo helper
             when (action) {
-                is ExpensesController.Action.Error ->
+                is com.example.fairsplit.controller.ExpensesController.Action.Loading -> setLoading(action.on)
+                is com.example.fairsplit.controller.ExpensesController.Action.Error ->
                     Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                is ExpensesController.Action.Added ->
+                is com.example.fairsplit.controller.ExpensesController.Action.Added ->
                     Toast.makeText(this, "Expense added", Toast.LENGTH_SHORT).show()
-                is ExpensesController.Action.Loading -> {
-                    // optional spinner reuse
-                    binding.progress.visibility = if (action.on) View.VISIBLE else View.GONE
-                }
                 else -> Unit
             }
         }
 
-        // --- Existing "create from text" button
-        binding.btnCreateGroup.setOnClickListener {
-            val name = binding.etGroupName.text.toString().trim()
-            if (name.isNotEmpty()) groupsCtrl.createGroup(name)
-            else binding.etGroupName.error = "Enter a group name"
+        // Open Settings
+        binding.btnOpenSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // --- DEMO helper: quick default group
+        // Create group from input
+        binding.btnCreateGroup.setOnClickListener {
+            val name = binding.etGroupName.text.toString().trim()
+            if (name.isEmpty()) {
+                binding.etGroupName.error = "Enter a group name"
+            } else {
+                groupsCtrl.createGroup(name)
+            }
+        }
+
+        // Demo: quick-create group
         binding.btnAddGroup.setOnClickListener {
             groupsCtrl.createGroup("Demo Trip")
         }
 
-        // --- DEMO helper: quick expense into a known group
+        // Demo: quick-add expense to latest/first group
         binding.btnAddExpense.setOnClickListener {
             val gid = lastCreatedGroupId ?: groups.firstOrNull()?.id
             if (gid.isNullOrBlank()) {
@@ -96,16 +128,16 @@ class GroupsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val demo = Expense(
+            val e = Expense(
                 title = "Demo Lunch",
                 amount = 150.0,
                 payerUid = uid,
                 participants = listOf(uid)
             )
-            expensesCtrl.add(gid, demo)
+            expensesCtrl.add(gid, e)
         }
 
-        // --- Tap a group to open its expense list screen (your existing flow)
+        // Open a group's expenses
         binding.listGroups.setOnItemClickListener { _, _, position, _ ->
             val g = groups[position]
             startActivity(
@@ -116,13 +148,11 @@ class GroupsActivity : AppCompatActivity() {
         }
     }
 
-    // Load the list each time the screen becomes visible
     override fun onStart() {
         super.onStart()
         groupsCtrl.loadMyGroups()
     }
 
-    // (Optional but useful) Menu for Settings + Logout
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(com.example.fairsplit.R.menu.menu_groups, menu)
         return true
@@ -131,14 +161,12 @@ class GroupsActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             com.example.fairsplit.R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                true
+                startActivity(Intent(this, SettingsActivity::class.java)); true
             }
             com.example.fairsplit.R.id.action_logout -> {
                 FirebaseAuth.getInstance().signOut()
                 startActivity(Intent(this, LoginActivity::class.java))
-                finish()
-                true
+                finish(); true
             }
             else -> super.onOptionsItemSelected(item)
         }

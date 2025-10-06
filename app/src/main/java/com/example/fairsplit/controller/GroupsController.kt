@@ -1,14 +1,20 @@
 package com.example.fairsplit.controller
 
-import android.util.Log
 import com.example.fairsplit.model.dto.Group
 import com.example.fairsplit.model.remote.FirestoreRepository
 import kotlinx.coroutines.*
 
+/**
+ * Groups controller with:
+ * - spinner always cleared (finally)
+ * - server-first load
+ * - createGroup() with 5s timeout + optimistic fallback
+ */
 class GroupsController(
-    private val repo: FirestoreRepository = FirestoreRepository(),
-    private val ui: (Action) -> Unit
+    private val ui: (Action) -> Unit,
+    private val repo: FirestoreRepository = FirestoreRepository()
 ) {
+
     sealed class Action {
         data class Loading(val on: Boolean) : Action()
         data class Error(val msg: String) : Action()
@@ -16,38 +22,59 @@ class GroupsController(
         data class Created(val group: Group) : Action()
     }
 
-    private val main = CoroutineScope(Dispatchers.Main)
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     fun loadMyGroups() {
-        main.launch {
-            ui(Action.Loading(true))
+        // quick UX: no blocking spinner here
+        ui(Action.Loading(false))
+        scope.launch {
             try {
-                Log.d("GroupsController", "loadMyGroups")
-                val items = withContext(Dispatchers.IO) { repo.myGroups() }
+                val items = repo.myGroups()
                 ui(Action.Groups(items))
             } catch (e: Exception) {
-                ui(Action.Error(e.message ?: "Failed to load groups"))
-            } finally {
-                ui(Action.Loading(false))
+                ui(Action.Error(e.localizedMessage ?: "Failed to load groups"))
             }
         }
     }
 
     fun createGroup(name: String) {
-        main.launch {
-            ui(Action.Loading(true))
+        ui(Action.Loading(true))
+        scope.launch {
             try {
-                Log.d("GroupsController", "createGroup: $name")
-                val g = withContext(Dispatchers.IO) { repo.createGroup(name) }
-                ui(Action.Created(g))
-                // refresh list
-                val items = withContext(Dispatchers.IO) { repo.myGroups() }
-                ui(Action.Groups(items))
+                // Try to create, but don't hang forever
+                val created = withTimeoutOrNull(5_000) {
+                    repo.createGroup(name)
+                }
+
+                if (created != null) {
+                    // normal path
+                    ui(Action.Created(created))
+                } else {
+                    // timeout: optimistic local item so UI updates immediately
+                    val uid = repo.currentUid()
+                    val local = Group(
+                        id = java.util.UUID.randomUUID().toString(),
+                        name = name,
+                        members = listOf(uid)
+                    )
+                    ui(Action.Created(local))
+                    ui(Action.Error("Network slow/offline: will sync in background."))
+
+                    // Try the real write in background without blocking UI
+                    launch(Dispatchers.IO) {
+                        try { repo.createGroup(name) } catch (_: Exception) { /* swallow */ }
+                    }
+                }
             } catch (e: Exception) {
-                ui(Action.Error(e.message ?: "Create failed"))
+                ui(Action.Error(e.localizedMessage ?: "Failed to create group"))
             } finally {
+                // ALWAYS clear spinner
                 ui(Action.Loading(false))
             }
         }
+    }
+
+    fun close() {
+        scope.cancel()
     }
 }
