@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.fairsplit.controller.AuthController
 import com.example.fairsplit.databinding.ActivityLoginBinding
+import com.google.firebase.auth.FirebaseAuth
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
@@ -22,17 +23,22 @@ class LoginActivity : AppCompatActivity() {
             binding.progress.visibility = if (on) View.VISIBLE else View.GONE
             binding.btnLogin.isEnabled = !on
             binding.btnGoRegister.isEnabled = !on
+            binding.tvForgot.isEnabled = !on
             binding.etEmail.isEnabled = !on
             binding.etPassword.isEnabled = !on
         }
 
         ctrl = AuthController { action ->
-            when (action) {
-                is AuthController.Action.Loading -> setLoading(action.on)
-                is AuthController.Action.Error ->
-                    Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                is AuthController.Action.LoginSuccess ->
-                    startActivity(Intent(this, GroupsActivity::class.java))
+            runOnUiThread {
+                when (action) {
+                    is AuthController.Action.Loading -> setLoading(action.on)
+                    is AuthController.Action.Error ->
+                        Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
+                    is AuthController.Action.LoginSuccess -> {
+                        startActivity(Intent(this, GroupsActivity::class.java))
+                        finish()
+                    }
+                }
             }
         }
 
@@ -56,6 +62,24 @@ class LoginActivity : AppCompatActivity() {
 
         binding.btnGoRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
+        }
+
+        // Forgot password
+        binding.tvForgot.setOnClickListener {
+            val email = binding.etEmail.text?.toString()?.trim().orEmpty()
+            if (Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                FirebaseAuth.getInstance()
+                    .sendPasswordResetEmail(email)
+                    .addOnCompleteListener { t ->
+                        val msg = if (t.isSuccessful)
+                            "Password reset email sent."
+                        else
+                            t.exception?.localizedMessage ?: "Could not send reset email."
+                        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                    }
+            } else {
+                binding.etEmail.error = "Enter your email to reset"
+            }
         }
     }
 }

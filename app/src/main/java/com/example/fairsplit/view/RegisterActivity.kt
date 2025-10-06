@@ -21,6 +21,7 @@ class RegisterActivity : AppCompatActivity() {
         fun setLoading(on: Boolean) {
             binding.progress.visibility = if (on) View.VISIBLE else View.GONE
             binding.btnRegister.isEnabled = !on
+            binding.tvGoLogin.isEnabled = !on
             binding.etName.isEnabled = !on
             binding.etEmail.isEnabled = !on
             binding.etPassword.isEnabled = !on
@@ -30,12 +31,9 @@ class RegisterActivity : AppCompatActivity() {
             runOnUiThread {
                 when (action) {
                     is AuthController.Action.Loading -> setLoading(action.on)
-                    is AuthController.Action.Error -> {
-                        setLoading(false)
+                    is AuthController.Action.Error ->
                         Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-                    }
                     is AuthController.Action.LoginSuccess -> {
-                        setLoading(false)
                         startActivity(Intent(this, GroupsActivity::class.java))
                         finish()
                     }
@@ -57,6 +55,12 @@ class RegisterActivity : AppCompatActivity() {
             if (!ok) return@setOnClickListener
 
             ctrl.register(email, pass, name)
+        }
+
+        // Back to login
+        binding.tvGoLogin.setOnClickListener {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
         }
     }
 }
