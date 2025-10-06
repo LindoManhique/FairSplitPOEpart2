@@ -1,72 +1,77 @@
 package com.example.fairsplit.controller
 
-import android.util.Log
 import com.example.fairsplit.model.dto.UserProfile
 import com.example.fairsplit.model.remote.FirestoreRepository
-import com.example.fairsplit.model.remote.RatesService
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.*
 
 class SettingsController(
-    private val repo: FirestoreRepository = FirestoreRepository(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val ui: (Action) -> Unit
+    private val ui: (Action) -> Unit,
+    private val repo: FirestoreRepository = FirestoreRepository()
 ) {
     sealed class Action {
         data class Loading(val on: Boolean) : Action()
         data class Error(val msg: String) : Action()
-        data class Loaded(val profile: UserProfile) : Action()
-        data class Rate(val text: String) : Action()
         object Saved : Action()
+        data class Prefilled(val name: String, val currency: String) : Action()
     }
 
     private val main = CoroutineScope(Dispatchers.Main)
+    private val timeoutMs = 20_000L
 
-    fun load() {
+    /** Support both `currencyCode` and legacy `currency` field names. */
+    private fun readCurrency(profile: UserProfile): String {
+        try {
+            val f = profile::class.java.getDeclaredField("currencyCode")
+            f.isAccessible = true
+            (f.get(profile) as? String)?.let { return it }
+        } catch (_: Exception) {}
+        try {
+            val f = profile::class.java.getDeclaredField("currency")
+            f.isAccessible = true
+            (f.get(profile) as? String)?.let { return it }
+        } catch (_: Exception) {}
+        return ""
+    }
+
+    fun loadProfile() {
         main.launch {
             ui(Action.Loading(true))
             try {
-                val uid = auth.currentUser?.uid ?: ""
-                Log.d("SettingsController", "load profile uid=$uid")
-                val p = withContext(Dispatchers.IO) { repo.getUserProfile(uid) }
-                    ?: UserProfile(uid = uid, displayName = "", defaultCurrency = "ZAR")
-                ui(Action.Loaded(p))
-            } catch (e: Exception) {
-                ui(Action.Error(e.message ?: "Load failed"))
+                val uid = repo.currentUid()
+                if (uid.isNotBlank()) {
+                    val prof = withContext(Dispatchers.IO) {
+                        runCatching { repo.getUserProfile(uid) }.getOrNull()
+                    }
+                    if (prof != null) {
+                        ui(Action.Prefilled(prof.displayName, readCurrency(prof)))
+                    }
+                }
             } finally {
                 ui(Action.Loading(false))
             }
         }
     }
 
-    fun save(profile: UserProfile) {
+    fun saveProfile(displayName: String, currencyCode: String) {
         main.launch {
             ui(Action.Loading(true))
             try {
-                Log.d("SettingsController", "save profile ${profile.uid}")
-                withContext(Dispatchers.IO) { repo.saveUserProfile(profile) }
+                val uid = repo.currentUid()
+                if (uid.isBlank()) throw Exception("Not signed in.")
+
+                // POSitional args (uid, displayName, currencyCode/currency)
+                val profile = UserProfile(
+                    uid,
+                    displayName,
+                    currencyCode.uppercase()
+                )
+
+                withContext(Dispatchers.IO) {
+                    withTimeoutOrNull(timeoutMs) { repo.saveUserProfile(profile) }
+                }
                 ui(Action.Saved)
             } catch (e: Exception) {
-                ui(Action.Error(e.message ?: "Save failed"))
-            } finally {
-                ui(Action.Loading(false))
-            }
-        }
-    }
-
-    fun fetchRateZarToUsd() {
-        main.launch {
-            ui(Action.Loading(true))
-            try {
-                Log.d("SettingsController", "fetch rate ZAR->USD")
-                val rate = withContext(Dispatchers.IO) {
-                    val resp = RatesService.api.latest("ZAR")
-                    if (!resp.isSuccessful) throw Exception("HTTP ${resp.code()}")
-                    resp.body()?.rates?.get("USD") ?: 0.0
-                }
-                ui(Action.Rate("1 ZAR = $rate USD"))
-            } catch (e: Exception) {
-                ui(Action.Error(e.message ?: "Rate fetch failed"))
+                ui(Action.Error(e.message ?: "Could not save profile"))
             } finally {
                 ui(Action.Loading(false))
             }

@@ -6,6 +6,5 @@ data class Expense(
     val title: String = "",
     val amount: Double = 0.0,
     val payerUid: String = "",
-    val participants: List<String> = emptyList(),   // <-- needed by your code
-    val date: Long = System.currentTimeMillis()     // <-- Firestore ordered by "date"
+    val participants: List<String> = emptyList()
 )

@@ -17,12 +17,14 @@ import com.example.fairsplit.model.dto.Group
 import com.example.fairsplit.model.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 class GroupsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGroupsBinding
     private lateinit var groupsCtrl: GroupsController
     private lateinit var expensesCtrl: ExpensesController
+    private val repo = FirestoreRepository()
 
     private var groups: List<Group> = emptyList()
     private var lastCreatedGroupId: String? = null
@@ -34,15 +36,6 @@ class GroupsActivity : AppCompatActivity() {
 
         binding.tvScreenTitle.text = "Groups"
 
-        // Greet user
-        val repo = FirestoreRepository()
-        lifecycleScope.launch {
-            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val profile = repo.getUserProfile(uid)
-            val fallback = FirebaseAuth.getInstance().currentUser?.email ?: "User"
-            binding.tvUserName.text = "Welcome, ${profile?.displayName ?: fallback}"
-        }
-
         fun setLoading(on: Boolean) {
             binding.progress.visibility = if (on) View.VISIBLE else View.GONE
             binding.btnCreateGroup.isEnabled = !on
@@ -52,22 +45,19 @@ class GroupsActivity : AppCompatActivity() {
             binding.etGroupName.isEnabled = !on
         }
 
-        // -------- Instantiate controllers with NAMED ARGS --------
+        // ---------- Controllers ----------
         groupsCtrl = GroupsController(
             ui = { action: GroupsController.Action ->
                 when (action) {
                     is GroupsController.Action.Loading -> setLoading(action.on)
-
                     is GroupsController.Action.Error ->
                         Toast.makeText(this, action.msg, Toast.LENGTH_SHORT).show()
-
                     is GroupsController.Action.Groups -> {
                         groups = action.items
                         val names = groups.map { it.name }
                         binding.listGroups.adapter =
                             ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
                     }
-
                     is GroupsController.Action.Created -> {
                         lastCreatedGroupId = action.group.id
                         Toast.makeText(this, "Group created: ${action.group.name}", Toast.LENGTH_SHORT).show()
@@ -77,9 +67,7 @@ class GroupsActivity : AppCompatActivity() {
                         val names = groups.map { it.name }
                         val existing = binding.listGroups.adapter as? ArrayAdapter<String>
                         if (existing != null) {
-                            existing.clear()
-                            existing.addAll(names)
-                            existing.notifyDataSetChanged()
+                            existing.clear(); existing.addAll(names); existing.notifyDataSetChanged()
                         } else {
                             binding.listGroups.adapter =
                                 ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
@@ -103,7 +91,7 @@ class GroupsActivity : AppCompatActivity() {
                 }
             }
         )
-        // ---------------------------------------------------------
+        // ---------------------------------
 
         binding.btnOpenSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -148,9 +136,19 @@ class GroupsActivity : AppCompatActivity() {
         }
     }
 
+    // Refresh welcome + groups whenever screen becomes visible
     override fun onStart() {
         super.onStart()
+        refreshWelcome()
         groupsCtrl.loadMyGroups()
+    }
+
+    private fun refreshWelcome() {
+        lifecycleScope.launch {
+            val profile = repo.getUserProfile()
+            val fallback = FirebaseAuth.getInstance().currentUser?.email ?: "User"
+            binding.tvUserName.text = "Welcome, ${profile?.displayName ?: fallback}"
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
